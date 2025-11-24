@@ -1,11 +1,28 @@
 import { useDroppable } from "@dnd-kit/core";
 import { ColumnProps } from "../types";
 import TaskCard from "./TaskCard";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { TaskForm, taskSchema } from "../schema";
 
-const Column = ({ column, tasks }: ColumnProps) => {
+const Column = ({ column, tasks, onCreateTask }: ColumnProps) => {
   const { setNodeRef } = useDroppable({
     id: column.id,
   });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<TaskForm>({
+    resolver: zodResolver(taskSchema),
+  });
+
+  const onSubmit = (data: TaskForm) => {
+    onCreateTask({ ...data, status: column.id });
+    reset();
+  };
 
   return (
     <div className="flex w-80 flex-col rounded-lg bg-neutral-800 p-4 ">

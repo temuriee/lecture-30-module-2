@@ -1,29 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { COLUMNS, INITIAL_TASKS } from "../data/data";
+import { CreateTask, fetchTasks, updateTask } from "../api/api";
+import { COLUMNS } from "../data/data";
 import { Task } from "../types";
 import Column from "./Column";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const DnDPage = () => {
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+const DndPage = () => {
+  const queryClient = useQueryClient();
+
+  const {
+    data: tasks = [],
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: fetchTasks,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (updatedTask: Task) => updateTask(updatedTask.id, updatedTask),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-
     if (!over) return;
 
     const taskId = active.id as string;
 
     const newStatus = over.id as Task["status"];
 
-    setTasks(() =>
-      tasks.map((task) =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+    const task = tasks.find((eachElement) => eachElement.id === taskId);
+    if (!task || task.status === newStatus) return;
+
+    const updatedTask = { ...task, status: newStatus };
+
+    mutation.mutate(updatedTask);
   }
+
+  const createTaskMutation = useMutation({
+    mutationFn: CreateTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  function handleCreateTask(newTask: Omit<Task, "id">) {
+    createTaskMutation.mutate(newTask);
+  }
+
+  if (isLoading) return <p>Loading..</p>;
 
   return (
     <div className="p-4">
@@ -34,6 +64,7 @@ const DnDPage = () => {
               key={column.id}
               column={column}
               tasks={tasks.filter((task) => task.status === column.id)}
+              onCreateTask={handleCreateTask}
             />
           ))}
         </DndContext>
@@ -42,4 +73,4 @@ const DnDPage = () => {
   );
 };
 
-export default DnDPage;
+export default DndPage;
